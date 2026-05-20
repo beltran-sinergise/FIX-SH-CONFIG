@@ -26,7 +26,10 @@ def new_color(color: str) -> str:
     """
     orig = re.findall(r"(\d+(\.\d+)*)", color)
     numbers = [round(float(match[0])) for match in orig]
-    return "rgb({}%,{}%,{}%)".format(*numbers)
+    if len(numbers) < 3:
+        logger.warning(f"Unexpected color format (skipping): {color!r} — parsed {numbers}")
+        return color
+    return "rgb({}%,{}%,{}%)".format(*numbers[:3])
 
 
 def fix_color_list(color_list: list[dict[str, str]]) -> list[dict[str, str]]:
@@ -52,7 +55,9 @@ def new_styles(styles: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """
     new_styles_list = []
     for style in styles:
-        if "gradients" in style["legend"]:
+        if "legend" not in style:
+            new_styles_list.append(style)
+        elif "gradients" in style["legend"]:
             gradients = fix_color_list(style["legend"]["gradients"])
             new_styles_list.append(
                 {**style, "legend": {**style["legend"], "gradients": gradients}}
@@ -62,48 +67,70 @@ def new_styles(styles: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return new_styles_list
 
 
-def update_config(lister: ConfigBuilder, config: dict[str, Any]) -> None:
+def update_config(lister: ConfigBuilder, config: dict[str, Any], dry_run: bool = False) -> None:
     """Update configuration by fixing colors in all layers.
 
     Args:
         lister: ConfigBuilder instance for managing configurations.
         config: Configuration dictionary containing the config ID.
+        dry_run: If True, log what would be updated without making changes.
     """
     layers = lister.get_layers(config["id"])
     for layer in layers:
-        logger.info(
-            f"Testing layer {layer['id']} in config {config['id']} before update."
-        )
+        style = layer["styles"][0]
+        if "legend" not in style:
+            continue
+
+        legend = style["legend"]
+        fields_to_update = [f for f in ("gradients", "items") if f in legend]
+        if not fields_to_update:
+            continue
+
+        if dry_run:
+            logger.info(
+                f"[DRY RUN] Would update layer {layer['id']} in config {config['id']} "
+                f"(legend fields: {', '.join(fields_to_update)})"
+            )
+            continue
+
+        logger.info(f"Testing layer {layer['id']} in config {config['id']} before update.")
         test_parse_response(config["id"], layer["id"])
 
         new_layer = layer
-        if "gradients" in new_layer["styles"][0]["legend"]:
-            new_layer["styles"][0]["legend"]["gradients"] = fix_color_list(
-                new_layer["styles"][0]["legend"]["gradients"]
-            )
-        if "items" in new_layer["styles"][0]["legend"]:
-            new_layer["styles"][0]["legend"]["items"] = fix_color_list(
-                new_layer["styles"][0]["legend"]["items"]
-            )
+        if "gradients" in legend:
+            legend["gradients"] = fix_color_list(legend["gradients"])
+        if "items" in legend:
+            legend["items"] = fix_color_list(legend["items"])
 
         logger.info(f"Updating layer {layer['id']} in config {config['id']}...")
         lister.set_layer(config["id"], layer["id"], new_layer)
-        logger.info(
-            f"Testing layer {layer['id']} in config {config['id']} after update."
-        )
+        logger.info(f"Testing layer {layer['id']} in config {config['id']} after update.")
         test_parse_response(config["id"], layer["id"])
         logger.info("------------------------------------")
 
 
-def update_all_configs(lister: ConfigBuilder) -> None:
+_EXCLUDE_PATTERNS = ("sentinel", "landsat", "wms")
+
+
+def is_clms_config(config: dict[str, Any]) -> bool:
+    name = config.get("name", "").lower()
+    return "template" in name and not any(pattern in name for pattern in _EXCLUDE_PATTERNS)
+
+
+def update_all_configs(lister: ConfigBuilder, dry_run: bool = False, clms_only: bool = False) -> None:
     """Update all configurations by fixing legend colors.
 
     Args:
         lister: ConfigBuilder instance for managing configurations.
+        dry_run: If True, log what would be updated without making changes.
+        clms_only: If True, skip Sentinel and Landsat configurations.
     """
     configs = lister.list_configs()
+    if clms_only:
+        configs = [c for c in configs if is_clms_config(c)]
+        logger.info(f"CLMS filter applied: {len(configs)} configs selected.")
     for config in configs:
-        update_config(lister, config)
+        update_config(lister, config, dry_run=dry_run)
 
 
 def test_layer(config_id: str, layer_id: str) -> requests.Response:

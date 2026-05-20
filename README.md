@@ -35,6 +35,11 @@ See the following guide on how to obtain your [SH credentials](https://documenta
 python fix_legends.py --update-all
 ```
 
+**Dry run:**
+```bash
+python fix_legends.py --dry-run --update-all
+```
+
 **Fix specific configurations:**
 ```bash
 python fix_legends.py --update-list config_id_1 config_id_2
@@ -43,6 +48,11 @@ python fix_legends.py --update-list config_id_1 config_id_2
 **Use a custom configuration file:**
 ```bash
 python fix_legends.py --update-all --conf path/to/your/conf
+
+```
+**Only update CLMS configurations(filters by name):**
+```bash
+python fix_legends.py --update-all --clms-only
 ```
 
 ## What It Does

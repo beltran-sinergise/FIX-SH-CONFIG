@@ -243,21 +243,24 @@ class SHCredentials(BaseSettings):
     sh_client_secret: str = Field(
         description="SentinelHub client secret used to authenticate with CDSE.",
     )
+    domain_account_id: str = Field(
+        description="Domain account ID used for API requests.",
+    )
 
 
-def read_configuration(config_file: Path) -> SHConfig:
+def read_configuration(config_file: Path) -> tuple[SHConfig, str]:
     """Read SentinelHub configuration from config file.
 
     Returns:
-        SHConfig: Configured SentinelHub configuration object with client credentials
-                 and CDSE endpoints.
+        Tuple of (SHConfig, domain_account_id).
     """
 
     sh_credentials = SHCredentials(_env_file=str(config_file))
 
-    return SHConfig(
+    sh_config = SHConfig(
         sh_client_id=sh_credentials.sh_client_id,
         sh_client_secret=sh_credentials.sh_client_secret,
         sh_base_url="https://sh.dataspace.copernicus.eu",
         sh_token_url="https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token",
     )
+    return sh_config, sh_credentials.domain_account_id
