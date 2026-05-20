@@ -26,7 +26,15 @@ def new_color(color: str) -> str:
     """
     orig = re.findall(r"(\d+(\.\d+)*)", color)
     numbers = [round(float(match[0])) for match in orig]
-    return "rgb({}%,{}%,{}%)".format(*numbers)
+
+    if len(numbers) < 3:
+        logger.warning(
+            f"Color '{color}' has fewer than 3 components ({len(numbers)}). "
+            "Returning original color unchanged."
+        )
+        return color
+
+    return "rgb({}%,{}%,{}%)".format(*numbers[:3])
 
 
 def fix_color_list(color_list: list[dict[str, str]]) -> list[dict[str, str]]:
@@ -52,6 +60,13 @@ def new_styles(styles: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """
     new_styles_list = []
     for style in styles:
+        if "legend" not in style:
+            logger.debug(
+                f"Style missing 'legend' key, skipping: {style.get('name', 'unknown')}"
+            )
+            new_styles_list.append(style)
+            continue
+
         if "gradients" in style["legend"]:
             gradients = fix_color_list(style["legend"]["gradients"])
             new_styles_list.append(
@@ -62,48 +77,106 @@ def new_styles(styles: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return new_styles_list
 
 
-def update_config(lister: ConfigBuilder, config: dict[str, Any]) -> None:
+def update_config(
+    lister: ConfigBuilder, config: dict[str, Any], *, dry_run: bool = False
+) -> None:
     """Update configuration by fixing colors in all layers.
 
     Args:
         lister: ConfigBuilder instance for managing configurations.
         config: Configuration dictionary containing the config ID.
+        dry_run: If True, log changes without making API updates.
     """
     layers = lister.get_layers(config["id"])
     for layer in layers:
         logger.info(
             f"Testing layer {layer['id']} in config {config['id']} before update."
         )
-        test_parse_response(config["id"], layer["id"])
+        response_status = test_parse_response(config["id"], layer["id"])
+        if response_status == 200:
+            logger.info(
+                f"Layer {layer['id']} in config {config['id']} is already in correct format. No update needed."
+            )
+            logger.info("------------------------------------")
+            continue
 
         new_layer = layer
+
+        # Skip layers without proper style/legend structure
+        if not new_layer.get("styles") or len(new_layer["styles"]) == 0:
+            logger.warning(
+                f"Layer {layer['id']} has no styles, skipping legend update."
+            )
+            logger.info("------------------------------------")
+            continue
+
+        if "legend" not in new_layer["styles"][0]:
+            logger.debug(f"Layer {layer['id']} has no legend in first style, skipping.")
+            logger.info("------------------------------------")
+            continue
+
+        # Update legend gradients if present
         if "gradients" in new_layer["styles"][0]["legend"]:
             new_layer["styles"][0]["legend"]["gradients"] = fix_color_list(
                 new_layer["styles"][0]["legend"]["gradients"]
             )
+
+        # Update legend items if present
         if "items" in new_layer["styles"][0]["legend"]:
             new_layer["styles"][0]["legend"]["items"] = fix_color_list(
                 new_layer["styles"][0]["legend"]["items"]
             )
 
-        logger.info(f"Updating layer {layer['id']} in config {config['id']}...")
-        lister.set_layer(config["id"], layer["id"], new_layer)
-        logger.info(
-            f"Testing layer {layer['id']} in config {config['id']} after update."
-        )
-        test_parse_response(config["id"], layer["id"])
+        if dry_run:
+            logger.info(
+                f"[DRY RUN] Would update layer {layer['id']} in config {config['id']}"
+            )
+        else:
+            logger.info(f"Updating layer {layer['id']} in config {config['id']}...")
+            lister.set_layer(config["id"], layer["id"], new_layer)
+
+        if not dry_run:
+            logger.info(
+                f"Testing layer {layer['id']} in config {config['id']} after update."
+            )
+            response_status = test_parse_response(config["id"], layer["id"])
         logger.info("------------------------------------")
 
 
-def update_all_configs(lister: ConfigBuilder) -> None:
+def _is_clms_config(config_name: str) -> bool:
+    """Check if a configuration is a CLMS product.
+
+    Args:
+        config_name: The configuration name to check.
+
+    Returns:
+        True if config is CLMS (contains 'CLMS' or 'clms').
+    """
+    return "CLMS" in config_name or "clms" in config_name
+
+
+def update_all_configs(
+    lister: ConfigBuilder, *, dry_run: bool = False, clms_only: bool = False
+) -> None:
     """Update all configurations by fixing legend colors.
 
     Args:
         lister: ConfigBuilder instance for managing configurations.
+        dry_run: If True, log changes without making API updates.
+        clms_only: If True, only process CLMS products (exclude sentinel/landsat/wms, require 'template').
     """
     configs = lister.list_configs()
+
+    # Apply CLMS filtering if requested
+    if clms_only:
+        original_count = len(configs)
+        configs = [c for c in configs if _is_clms_config(c["name"])]
+        logger.info(
+            f"CLMS filter: processing {len(configs)} of {original_count} configs"
+        )
+
     for config in configs:
-        update_config(lister, config)
+        update_config(lister, config, dry_run=dry_run)
 
 
 def test_layer(config_id: str, layer_id: str) -> requests.Response:
@@ -242,3 +315,4 @@ def test_parse_response(config_id: str, layer_id: str) -> None:
     else:
         logger.error(f"Error for layer {layer_id} in config {config_id}.")
         logger.error(f"Response status: {r.status_code}")
+    return r.status_code
