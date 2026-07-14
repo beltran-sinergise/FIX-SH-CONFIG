@@ -27,7 +27,9 @@ def new_color(color: str) -> str:
     orig = re.findall(r"(\d+(\.\d+)*)", color)
     numbers = [round(float(match[0])) for match in orig]
     if len(numbers) < 3:
-        logger.warning(f"Unexpected color format (skipping): {color!r} — parsed {numbers}")
+        logger.warning(
+            f"Unexpected color format (skipping): {color!r} — parsed {numbers}"
+        )
         return color
     return "rgb({}%,{}%,{}%)".format(*numbers[:3])
 
@@ -67,7 +69,9 @@ def new_styles(styles: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return new_styles_list
 
 
-def update_config(lister: ConfigBuilder, config: dict[str, Any], dry_run: bool = False) -> None:
+def update_config(
+    lister: ConfigBuilder, config: dict[str, Any], dry_run: bool = False
+) -> None:
     """Update configuration by fixing colors in all layers.
 
     Args:
@@ -93,7 +97,9 @@ def update_config(lister: ConfigBuilder, config: dict[str, Any], dry_run: bool =
             )
             continue
 
-        logger.info(f"Testing layer {layer['id']} in config {config['id']} before update.")
+        logger.info(
+            f"Testing layer {layer['id']} in config {config['id']} before update."
+        )
         test_parse_response(config["id"], layer["id"])
 
         new_layer = layer
@@ -104,7 +110,9 @@ def update_config(lister: ConfigBuilder, config: dict[str, Any], dry_run: bool =
 
         logger.info(f"Updating layer {layer['id']} in config {config['id']}...")
         lister.set_layer(config["id"], layer["id"], new_layer)
-        logger.info(f"Testing layer {layer['id']} in config {config['id']} after update.")
+        logger.info(
+            f"Testing layer {layer['id']} in config {config['id']} after update."
+        )
         test_parse_response(config["id"], layer["id"])
         logger.info("------------------------------------")
 
@@ -114,10 +122,14 @@ _EXCLUDE_PATTERNS = ("sentinel", "landsat", "wms")
 
 def is_clms_config(config: dict[str, Any]) -> bool:
     name = config.get("name", "").lower()
-    return "template" in name and not any(pattern in name for pattern in _EXCLUDE_PATTERNS)
+    return "template" in name and not any(
+        pattern in name for pattern in _EXCLUDE_PATTERNS
+    )
 
 
-def update_all_configs(lister: ConfigBuilder, dry_run: bool = False, clms_only: bool = False) -> None:
+def update_all_configs(
+    lister: ConfigBuilder, dry_run: bool = False, clms_only: bool = False
+) -> None:
     """Update all configurations by fixing legend colors.
 
     Args:
@@ -130,6 +142,7 @@ def update_all_configs(lister: ConfigBuilder, dry_run: bool = False, clms_only: 
         configs = [c for c in configs if is_clms_config(c)]
         logger.info(f"CLMS filter applied: {len(configs)} configs selected.")
     for config in configs:
+        update_config(lister, config, dry_run=dry_run)
         update_config(lister, config, dry_run=dry_run)
 
 
@@ -269,3 +282,4 @@ def test_parse_response(config_id: str, layer_id: str) -> None:
     else:
         logger.error(f"Error for layer {layer_id} in config {config_id}.")
         logger.error(f"Response status: {r.status_code}")
+    return r.status_code

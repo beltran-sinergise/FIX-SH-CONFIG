@@ -55,6 +55,40 @@ python fix_legends.py --update-all --conf path/to/your/conf
 python fix_legends.py --update-all --clms-only
 ```
 
+**Preview changes without applying (dry-run mode):**
+```bash
+python fix_legends.py --update-all --dry-run
+```
+
+**Process only CLMS products:**
+```bash
+python fix_legends.py --update-all --clms-only
+```
+
+**Combine options:**
+```bash
+python fix_legends.py --update-all --clms-only --dry-run
+```
+
+**Notes:**
+- `--dry-run` shows what would be updated without making API changes
+- `--clms-only` filters configurations to only CLMS products (config name must contain 'CLMS' or 'clms')
+- Both flags work with `--update-all` and `--update-list`
+
+## Recommended Workflow
+
+1. **Preview changes first with dry-run mode:**
+   ```bash
+   python fix_legends.py --update-all --clms-only --dry-run
+   ```
+   This inspects all CLMS configurations and logs which ones contain errors and would be updated, without making any API changes.
+
+2. **Apply the fixes:**
+   ```bash
+   python fix_legends.py --update-all --clms-only
+   ```
+   This applies the legend color format fixes to all CLMS configurations.
+
 ## What It Does
 
 The script automatically:
@@ -73,12 +107,6 @@ sh_client_secret="<your-client-secret>"
 ```
 
 The script reads this file to authenticate with Sentinel Hub and update your configurations.
-
-## Typical Workflow
-
-1. **Identify problem configurations** - Run with `--update-all` to automatically detect and fix issues
-2. **Verify fixes** - The script logs all changes and validates against the Sentinel Hub API
-3. **Check specific layers** - Use the diagnostic functions in `src/utils.py` for manual inspection if needed
 
 ## Dependencies
 

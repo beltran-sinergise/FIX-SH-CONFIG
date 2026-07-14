@@ -6,12 +6,9 @@ import logging
 from src.SHconfig import ConfigBuilder, read_configuration
 from src.utils import update_all_configs, update_config, is_clms_config
 
-logging.basicConfig(
-    level=logging.WARNING,
-    format="%(levelname)s\t%(message)s"
-)
-logging.getLogger('src.utils').setLevel(logging.DEBUG)
-logging.getLogger('src.SHconfig').setLevel(logging.DEBUG)
+logging.basicConfig(level=logging.WARNING, format="%(levelname)s\t%(message)s")
+logging.getLogger("src.utils").setLevel(logging.DEBUG)
+logging.getLogger("src.SHconfig").setLevel(logging.DEBUG)
 
 
 def main() -> None:
@@ -51,11 +48,24 @@ def main() -> None:
 
     if args.update_all:
         update_all_configs(lister, dry_run=args.dry_run, clms_only=args.clms_only)
+        update_all_configs(lister, dry_run=args.dry_run, clms_only=args.clms_only)
     elif args.update_list:
-        for config_id in args.update_list:
+        config_ids = args.update_list
+        if args.clms_only:
+            config_ids = [
+                config_id
+                for config_id in config_ids
+                if _is_clms_config(lister.get_config(config_id)["name"])
+            ]
+            logging.getLogger("src.utils").info(
+                f"CLMS filter: processing {len(config_ids)} of {len(args.update_list)} configs"
+            )
+        for config_id in config_ids:
             config = lister.get_config(config_id)
             if args.clms_only and not is_clms_config(config):
-                logger.info(f"Skipping non-CLMS config: {config.get('name')} ({config_id})")
+                logger.info(
+                    f"Skipping non-CLMS config: {config.get('name')} ({config_id})"
+                )
                 continue
             update_config(lister, config, dry_run=args.dry_run)
 
