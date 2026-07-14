@@ -64,8 +64,6 @@ def new_styles(styles: list[dict[str, Any]]) -> list[dict[str, Any]]:
             new_styles_list.append(
                 {**style, "legend": {**style["legend"], "gradients": gradients}}
             )
-        else:
-            new_styles_list.append(style)
     return new_styles_list
 
 
@@ -121,6 +119,7 @@ _EXCLUDE_PATTERNS = ("sentinel", "landsat", "wms")
 
 
 def is_clms_config(config: dict[str, Any]) -> bool:
+    """Determine if a configuration is a CLMS (Copernicus Land Monitoring Service) config."""
     name = config.get("name", "").lower()
     return "template" in name and not any(
         pattern in name for pattern in _EXCLUDE_PATTERNS
@@ -142,7 +141,6 @@ def update_all_configs(
         configs = [c for c in configs if is_clms_config(c)]
         logger.info(f"CLMS filter applied: {len(configs)} configs selected.")
     for config in configs:
-        update_config(lister, config, dry_run=dry_run)
         update_config(lister, config, dry_run=dry_run)
 
 

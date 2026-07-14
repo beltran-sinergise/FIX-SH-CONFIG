@@ -48,19 +48,9 @@ python fix_legends.py --update-list config_id_1 config_id_2
 **Use a custom configuration file:**
 ```bash
 python fix_legends.py --update-all --conf path/to/your/conf
-
-```
-**Only update CLMS configurations(filters by name):**
-```bash
-python fix_legends.py --update-all --clms-only
 ```
 
-**Preview changes without applying (dry-run mode):**
-```bash
-python fix_legends.py --update-all --dry-run
-```
-
-**Process only CLMS products:**
+**Only update CLMS configurations (filters by name):**
 ```bash
 python fix_legends.py --update-all --clms-only
 ```
